@@ -15,7 +15,7 @@ class MediaLimitExceeded(RuntimeError):
 def _make_progress_hook():
     seen = {}
     def hook(data):
-        filename = str(data.get("filename") or data.get("tmpfilename") or "media")
+        filename = str(data.get("filename") or data.get("tmpfilename") or "media") + "#" + str(data.get("fragment_index") or 0)
         downloaded = int(data.get("downloaded_bytes") or 0)
         seen[filename] = max(seen.get(filename, 0), downloaded)
         if sum(seen.values()) > MAX_MEDIA_BYTES:
