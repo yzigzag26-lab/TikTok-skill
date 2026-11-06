@@ -3,7 +3,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 from yt_dlp import YoutubeDL
-from yt_dlp.utils import DownloadError
+from yt_dlp.utils import DownloadError, download_range_func
 from .config import MAX_MEDIA_BYTES, DOWNLOAD_TIMEOUT_SECONDS
 
 class MediaUnavailable(RuntimeError):
@@ -12,12 +12,15 @@ class MediaUnavailable(RuntimeError):
 class MediaLimitExceeded(RuntimeError):
     pass
 
-def _progress_hook(data):
-    if data.get("status") == "downloading":
+def _make_progress_hook():
+    seen = {}
+    def hook(data):
+        filename = str(data.get("filename") or data.get("tmpfilename") or "media")
         downloaded = int(data.get("downloaded_bytes") or 0)
-        total = data.get("total_bytes") or data.get("total_bytes_estimate")
-        if downloaded > MAX_MEDIA_BYTES or (total and int(total) > MAX_MEDIA_BYTES * 4):
+        seen[filename] = max(seen.get(filename, 0), downloaded)
+        if sum(seen.values()) > MAX_MEDIA_BYTES:
             raise DownloadError("Media transfer exceeded the configured safety bound.")
+    return hook
 
 def inspect_video(url: str) -> dict:
     options = {
@@ -46,9 +49,9 @@ def download_segment(url: str, start: float, end: float, workdir: str) -> Path:
         "format": "best[height<=720]/best",
         "outtmpl": str(output),
         "merge_output_format": "mp4",
-        "download_sections": [f"*{start:.3f}-{end:.3f}"],
+        "download_ranges": download_range_func(None, [(start, end)]),
         "force_keyframes_at_cuts": True,
-        "progress_hooks": [_progress_hook],
+        "progress_hooks": [_make_progress_hook()],
         "socket_timeout": 12, "retries": 1, "fragment_retries": 1,
         "concurrent_fragment_downloads": 1,
         "overwrites": True,
