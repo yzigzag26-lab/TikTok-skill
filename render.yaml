@@ -4,7 +4,7 @@ services:
     runtime: docker
     dockerfilePath: ./worker/Dockerfile
     dockerContext: .
-    plan: starter
+    plan: free
     healthCheckPath: /health
     envVars:
       - key: WORKER_API_KEY
