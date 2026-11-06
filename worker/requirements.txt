@@ -1,0 +1,8 @@
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+yt-dlp==2025.5.22
+faster-whisper==1.1.1
+opencv-python-headless==4.11.0.86
+Pillow==11.2.1
+rapidocr-onnxruntime==1.4.4
+pydantic==2.11.5
