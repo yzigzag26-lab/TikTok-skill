@@ -1,7 +1,7 @@
 import os
 
-MAX_MEDIA_BYTES = min(int(os.getenv("MAX_MEDIA_BYTES", "10485760")), 10 * 1024 * 1024)
-MAX_SEGMENT_SECONDS = min(int(os.getenv("MAX_SEGMENT_SECONDS", "90")), 90)
+MAX_MEDIA_BYTES = max(1024, min(int(os.getenv("MAX_MEDIA_BYTES", "10485760")), 10 * 1024 * 1024))
+MAX_SEGMENT_SECONDS = max(1, min(int(os.getenv("MAX_SEGMENT_SECONDS", "90")), 90))
 MAX_OCR_FRAMES = 30
 MAX_KEYFRAMES = 6
 MAX_REQUEST_BYTES = 16_384
