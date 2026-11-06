@@ -48,8 +48,8 @@ async def analyze(payload: AnalyzeRequest, request: Request, x_worker_key: Optio
             if media.stat().st_size > MAX_MEDIA_BYTES:
                 raise MediaLimitExceeded("Downloaded segment exceeded the 10 MB hard limit and was discarded.")
             actual_duration = probe_duration(media)
-            if actual_duration > MAX_SEGMENT_SECONDS + 2:
-                raise MediaLimitExceeded("Downloaded media exceeded the 90-second segment limit and was discarded.")
+            if actual_duration > MAX_SEGMENT_SECONDS:
+                raise MediaLimitExceeded("Downloaded media exceeded the strict 90-second segment limit and was discarded.")
             transcript = transcribe(media, tmp, start)
             on_screen_text, keyframes = extract_frames(media, start)
             next_offset = min(start + actual_duration, duration)
