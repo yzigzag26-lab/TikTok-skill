@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const maxDuration = 10;
 type OEmbed = { title?:string; author_name?:string; author_url?:string; thumbnail_url?:string; html?:string; provider_name?:string };
-function validTikTokUrl(raw:string): URL | null { try { const u=new URL(raw); const host=u.hostname.toLowerCase().replace(/^www\\./,""); if(u.protocol!=="https:" || !["tiktok.com","m.tiktok.com","vm.tiktok.com","vt.tiktok.com"].includes(host)) return null; return u; } catch { return null; } }
+function validTikTokUrl(raw:string): URL | null { try { const u=new URL(raw); const host=u.hostname.toLowerCase().replace(/^www\./,""); if(u.protocol!=="https:" || !["tiktok.com","m.tiktok.com","vm.tiktok.com","vt.tiktok.com"].includes(host)) return null; return u; } catch { return null; } }
 export async function POST(req:NextRequest){
  try { const body=await req.json(); const raw=typeof body.url==="string"?body.url.trim():""; const url=validTikTokUrl(raw); if(!url) return NextResponse.json({error:"Enter a valid public TikTok HTTPS link."},{status:400}); const notes=typeof body.notes==="string"?body.notes.slice(0,1200):"";
  const endpoint=new URL("https://www.tiktok.com/oembed"); endpoint.searchParams.set("url",url.toString());
