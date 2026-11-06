@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: tiktok-intelligence-worker
+    runtime: docker
+    dockerfilePath: ./worker/Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: WORKER_API_KEY
+        generateValue: true
+      - key: CURSOR_SECRET
+        generateValue: true
+      - key: WHISPER_MODEL
+        value: tiny
+      - key: WHISPER_DEVICE
+        value: cpu
+      - key: WHISPER_COMPUTE_TYPE
+        value: int8
+      - key: MAX_MEDIA_BYTES
+        value: "10485760"
+      - key: MAX_SEGMENT_SECONDS
+        value: "90"
