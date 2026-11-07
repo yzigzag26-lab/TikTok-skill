@@ -11,6 +11,7 @@ from .security import validate_tiktok_url, require_worker_key, UnsafeSource
 from .cursors import encode_cursor, decode_cursor, InvalidCursor
 from .media import inspect_video, download_segment, probe_duration, MediaUnavailable, MediaLimitExceeded
 from .processors import transcribe, extract_frames
+from .music import identify_songs
 
 app = FastAPI(title="TikTok Intelligence Media Worker", version="0.2.0")
 
@@ -65,6 +66,7 @@ def _analyze(payload: AnalyzeRequest, request: Request, x_worker_key: Optional[s
                 raise MediaLimitExceeded("Downloaded media exceeded the strict 90-second segment limit and was discarded.")
             transcript = transcribe(media, tmp, start)
             on_screen_text, keyframes = extract_frames(media, start)
+            song_recognition = identify_songs(media, actual_duration, start)
             next_offset = min(start + actual_duration, duration)
             next_cursor = encode_cursor(safe_url, next_offset) if next_offset + 0.5 < duration else None
             return {
@@ -75,9 +77,10 @@ def _analyze(payload: AnalyzeRequest, request: Request, x_worker_key: Optional[s
                 "transcript": transcript,
                 "on_screen_text": on_screen_text,
                 "keyframes": keyframes,
+                "song_recognition": song_recognition,
                 "next_cursor": next_cursor,
                 "continuation": "Send next_cursor to POST /v1/analyze to process the next accessible segment. Each request processes at most one 90-second segment.",
-                "limitations": ["Only public TikTok videos accessible without login or restriction bypass are supported.", "OCR and speech recognition are machine-generated and may contain errors.", "Music identification is not included in this worker version."]
+                "limitations": ["Only public TikTok videos accessible without login or restriction bypass are supported.", "OCR and speech recognition are machine-generated and may contain errors.", "Song recognition depends on the optional AudD provider and may return no match for short, noisy, remixed or heavily processed audio."]
             }
     except UnsafeSource as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
