@@ -2,11 +2,11 @@
 
 ## Deployment split
 - **Vercel / Next.js**: web interface, URL validation, short API orchestration, optional Groq context note.
-- **Media worker (separate service)**: future Python service for FFmpeg, yt-dlp-compatible public retrieval, lightweight transcription, OCR and keyframes. It must not run as a long media job inside a Vercel Function.
+- **Media worker (separate service)**: Python FastAPI service under `worker/`, using yt-dlp, FFmpeg, Faster-Whisper, RapidOCR and OpenCV. It must not run as a long media job inside a Vercel Function.
 - **Adapters**: REST API first; MCP stdio and remote Streamable HTTP planned over the same normalized core.
 
-## Current MVP boundary
-The current endpoint uses TikTok public oEmbed. It does not retrieve the actual video file. No transcript, OCR, audio fingerprint or keyframes are returned yet. Groq is optional and receives only public metadata plus the user's research question.
+## Current service boundaries
+The Next.js endpoint currently uses TikTok public oEmbed metadata. The Python worker independently retrieves and analyzes bounded media segments. The Vercel UI is not yet wired to the worker; callers use the worker REST endpoint with a server-side API key.
 
 ## Media safety invariants
 1. Each media file is at most 10 MB.
