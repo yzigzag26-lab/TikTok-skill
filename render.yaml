@@ -11,6 +11,8 @@ services:
         generateValue: true
       - key: CURSOR_SECRET
         generateValue: true
+      - key: AUDD_API_TOKEN
+        sync: false
       - key: WHISPER_MODEL
         value: tiny
       - key: WHISPER_DEVICE
