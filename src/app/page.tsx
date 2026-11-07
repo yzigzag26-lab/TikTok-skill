@@ -17,7 +17,7 @@ export default function Home(){
  const [nextCursor,setNextCursor]=useState<string|null>(null);
 
  async function runSongJob(payload:{url?:string;cursor?:string}){
-   setSongStatus("queued");setSongResult(null);setNextCursor(null);setError("");
+   setSongStatus("queued");if(payload.url)setSongResult(null);setNextCursor(null);setError("");
    try{
      const started=await fetch("/api/song-jobs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
      const startData=await started.json();
@@ -30,7 +30,17 @@ export default function Home(){
        if(!response.ok)throw new Error(job.error||"Could not retrieve song-identification status.");
        if(job.status==="failed")throw new Error(job.error||"Song identification failed.");
        if(job.status==="complete"&&job.result){
-         setSongResult(job.result.song_recognition||null);
+         const incoming=job.result.song_recognition||null;
+         setSongResult(previous=>{
+           if(!incoming)return previous;
+           if(!payload.cursor||!previous)return incoming;
+           const merged=[...previous.matches];
+           for(const candidate of incoming.matches||[]){
+             const exists=merged.some(item=>(item.title||"").toLowerCase()===(candidate.title||"").toLowerCase()&&(item.artist||"").toLowerCase()===(candidate.artist||"").toLowerCase());
+             if(!exists)merged.push(candidate);
+           }
+           return {...incoming,matches:merged,samples_checked:(previous.samples_checked||0)+(incoming.samples_checked||0)};
+         });
          setNextCursor(job.result.next_cursor||null);
          setSongStatus("complete");
          return;
