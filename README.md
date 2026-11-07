@@ -12,7 +12,9 @@ This repository currently contains a **Vercel-ready Next.js MVP**:
 
 ## Important current scope
 
-This MVP does **not** download or inspect video media. Timestamped transcription, OCR, keyframes, music recognition, 90-second segment continuation and the 10 MB per-file enforcement belong to the separate media worker milestone. The UI and skill documentation state this boundary rather than inventing media evidence.
+The repository now includes a separate Python media worker under `worker/`. It retrieves public TikTok segments, enforces a 10 MiB media-file cap and a strict 90-second segment cap, and extracts timestamped speech, OCR and keyframes. Each request processes one segment and returns a signed continuation cursor when more accessible video remains. See [worker/README.md](worker/README.md).
+
+The worker is a separate service, not a Vercel Function. Its runtime and model performance still need deployment verification. Music identification is not implemented yet.
 
 ## Deploy to Vercel
 
