@@ -1,5 +1,6 @@
 import os
 import tempfile
+import threading
 from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI, Header, HTTPException, Request
@@ -21,8 +22,18 @@ class AnalyzeRequest(BaseModel):
 def health():
     return {"ok": True, "service": "tiktok-intelligence-worker", "max_media_bytes": MAX_MEDIA_BYTES, "max_segment_seconds": MAX_SEGMENT_SECONDS}
 
+PROCESS_LOCK = threading.Lock()
+
 @app.post("/v1/analyze")
-async def analyze(payload: AnalyzeRequest, request: Request, x_worker_key: Optional[str] = Header(default=None)):
+def analyze(payload: AnalyzeRequest, request: Request, x_worker_key: Optional[str] = Header(default=None)):
+    if not PROCESS_LOCK.acquire(blocking=False):
+        raise HTTPException(status_code=429, detail="Worker is busy processing another segment. Retry shortly.")
+    try:
+        return _analyze(payload, request, x_worker_key)
+    finally:
+        PROCESS_LOCK.release()
+
+def _analyze(payload: AnalyzeRequest, request: Request, x_worker_key: Optional[str] = None):
     if not WORKER_API_KEY:
         raise HTTPException(status_code=503, detail="WORKER_API_KEY is not configured.")
     require_worker_key(x_worker_key, WORKER_API_KEY)
