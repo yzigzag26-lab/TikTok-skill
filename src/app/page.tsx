@@ -69,7 +69,7 @@ export default function Home(){
  <nav className="nav"><div className="brand"><span className="brand-mark">T</span><span>TIKTOK <b>INTELLIGENCE</b></span></div><span className="nav-tag">SONG RECOGNITION <i/></span></nav>
  <section className="hero">
  <div className="eyebrow"><span/> EVIDENCE-FIRST MUSIC IDENTIFICATION</div>
- <h1>Find the song.<br/><em>Know what you're hearing.</em></h1>
+ <h1>Find the song.<br/><em>Know what you&apos;re hearing.</em></h1>
  <p className="intro">Paste a public TikTok link. The service retrieves accessible audio, checks multiple short audio windows against a music-recognition database, and returns song candidates with timestamps and source links. Your connected AI can handle the wider video analysis.</p>
  <form className="analyze-card" onSubmit={submit}>
  <label htmlFor="tiktok-url">PUBLIC TIKTOK VIDEO URL</label>
