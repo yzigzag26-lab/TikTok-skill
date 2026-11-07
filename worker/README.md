@@ -1,71 +1,76 @@
-# Python media worker
+# Python media and song-recognition worker
 
-This service runs outside Vercel. It accepts a public TikTok URL or a signed continuation cursor and processes exactly one bounded segment per request.
+This service retrieves accessible public TikTok media and identifies music using AudD. It is separate from Vercel.
 
-## Endpoints
+## Song identification API
 
-- `GET /health` — health and configured hard limits.
-- `POST /v1/analyze` — retrieve and analyze one segment.
+All endpoints require `X-Worker-Key`.
 
-All analysis requests require `X-Worker-Key`.
-
-Start a new analysis:
+Start a job:
 
 ```bash
-curl -X POST "$WORKER_URL/v1/analyze" \
+curl -X POST "$WORKER_URL/v1/song-jobs" \
   -H "Content-Type: application/json" \
   -H "X-Worker-Key: $WORKER_API_KEY" \
   -d '{"url":"https://www.tiktok.com/@creator/video/1234567890"}'
 ```
 
-Continue only when the response contains `next_cursor`:
+Poll the returned job ID:
 
 ```bash
-curl -X POST "$WORKER_URL/v1/analyze" \
+curl "$WORKER_URL/v1/song-jobs/JOB_ID" \
+  -H "X-Worker-Key: $WORKER_API_KEY"
+```
+
+When the result contains `next_cursor`, start another job with that cursor only when the user asks to continue:
+
+```bash
+curl -X POST "$WORKER_URL/v1/song-jobs" \
   -H "Content-Type: application/json" \
   -H "X-Worker-Key: $WORKER_API_KEY" \
   -d '{"cursor":"PASTE_NEXT_CURSOR"}'
 ```
 
-A cursor is HMAC-signed, bound to the original TikTok URL, and expires after six hours. A request may contain either `url` or `cursor`, never both.
+Each job processes one segment, no longer than 90 seconds. The signed cursor is bound to the original TikTok URL and expires after six hours.
 
-## Hard limits and processing
+## Recognition strategy
 
-- Maximum source media file: 10,485,760 bytes (10 MiB).
-- Maximum requested segment: 90 seconds.
-- A download progress hook monitors bytes across downloaded media fragments and aborts when the transfer exceeds the cap. The completed output is checked again on disk.
-- ffprobe checks the actual segment duration before transcription or OCR. Files over either limit are discarded.
-- yt-dlp is used without browser cookies or login credentials. Private/login-walled content is not supported.
-- Temporary files are created in a per-request temporary directory and deleted automatically.
-- Speech recognition uses Faster-Whisper (tiny/int8 by default).
-- OCR uses RapidOCR on at most 30 sampled frames.
-- Up to six resized JPEG keyframes are returned as base64 data with absolute timestamps.
-- Transcript and OCR timestamps are relative to the original video timeline.
+- Extracts three separate 12-second MP3 samples at approximately 0, 30 and 60 seconds into each segment.
+- Sends each sample to AudD's standard recognition endpoint.
+- Deduplicates repeated artist/title matches and returns the sample timestamp, provider metadata and available song links.
+- Does not manufacture confidence percentages: the standard AudD response does not reliably provide a numeric match score.
+- Returns `not_configured` when `AUDD_API_TOKEN` is missing and `no_match` when sampled audio returns no recognized song.
+
+A provider match is a candidate, not a guarantee. Short, noisy, remixed, sped-up or voice-over-heavy clips can fail to match or return an incorrect result. Later segments may contain a different song and are only processed after explicit continuation.
+
+## Limits
+
+- Downloaded media file: maximum 10,485,760 bytes (10 MiB).
+- Segment duration: maximum 90 seconds.
+- AudD standard recognition accepts short audio samples (the provider documents a 10 MB file limit and analyses up to about 12 seconds on its standard endpoint).
+- This worker sends up to three provider requests per segment. Each request may count against the AudD plan.
+- Temporary media is removed after each job.
+- No browser cookies, account credentials, login bypass, private-video access or DRM circumvention.
 
 ## Environment variables
 
 | Variable | Default | Purpose |
 |---|---|---|
-| WORKER_API_KEY | required | API authentication |
-| CURSOR_SECRET | required | HMAC signing of continuation cursors |
-| MAX_MEDIA_BYTES | 10485760 | Hard cap; cannot be configured above 10 MiB |
-| MAX_SEGMENT_SECONDS | 90 | Hard cap; cannot be configured above 90 seconds |
-| WHISPER_MODEL | tiny | Faster-Whisper model |
-| WHISPER_DEVICE | cpu | Inference device |
-| WHISPER_COMPUTE_TYPE | int8 | CPU quantization |
+| WORKER_API_KEY | required | Authenticates API callers |
+| CURSOR_SECRET | required | Signs continuation cursors |
+| AUDD_API_TOKEN | empty | AudD music-recognition token |
+| MAX_MEDIA_BYTES | 10485760 | Hard cap; cannot exceed 10 MiB |
+| MAX_SEGMENT_SECONDS | 90 | Hard cap; cannot exceed 90 seconds |
+| WHISPER_MODEL | tiny | Used by the optional full evidence endpoint |
+| WHISPER_DEVICE | cpu | Whisper inference device |
+| WHISPER_COMPUTE_TYPE | int8 | Whisper CPU quantization |
 
 ## Deploy on Render
 
-1. In Render, create a new Blueprint from this repository and select the root `render.yaml`.
-2. Render creates the worker service from `worker/Dockerfile`.
-3. Set `WORKER_API_KEY` and `CURSOR_SECRET` to long random values if not auto-generated.
-4. Wait for the build and call `/health`.
-5. Save the service URL and API key as server-only environment variables in any trusted caller. Never expose the worker key in browser JavaScript.
+1. Create a Blueprint from the repository root and use `render.yaml`.
+2. Set `AUDD_API_TOKEN` in the worker environment. It is intentionally not auto-generated.
+3. Keep `WORKER_API_KEY` and `CURSOR_SECRET` secret.
+4. Wait for deployment and verify `/health`.
+5. In Vercel, set `WORKER_URL` and `WORKER_API_KEY` as server-only environment variables.
 
-The blueprint uses Render's free plan as a starting point. Free instances can sleep and have constrained RAM/CPU; model initialization or OCR/transcription may be slow or run out of memory. If this happens, use a larger worker instance or move speech recognition to a managed inference API. The free plan is a deployment experiment, not a performance guarantee.
-
-## Important constraints
-
-TikTok may block or change public media retrieval. The worker does not bypass login, private-video permissions, DRM, or other access controls. If retrieval fails, the API returns an explicit unavailable error. No transcript, OCR or keyframe content is fabricated.
-
-The current worker does not identify music, and it does not yet use a durable job queue. One HTTP request processes one segment synchronously. For longer cloud jobs, the next architecture step is a queue + job-status endpoint so client connections do not need to remain open.
+The free Render plan can sleep or run out of resources. Job state is in memory, so worker restarts lose in-flight jobs and continuation cursors remain usable only if their source can be fetched again. A larger instance or durable job storage is needed for production reliability.
