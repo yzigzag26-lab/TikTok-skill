@@ -11,7 +11,7 @@ from .config import MAX_SEGMENT_SECONDS
 _LOCK = threading.Lock()
 _JOBS: dict[str, dict] = {}
 
-def create_job(url: str | None, cursor: str | None) -> str:
+def create_job(url: str | None, cursor: str | None) -> tuple[str, str, float]:
     if bool(url) == bool(cursor):
         raise ValueError("Provide exactly one TikTok URL or continuation cursor.")
     if cursor:
