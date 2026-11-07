@@ -4,9 +4,11 @@
 Analyze public TikTok links by collecting verifiable evidence and returning structured results to the connected AI agent. The skill is an integration layer, not a foundation model.
 
 ## Current implementation
-The Vercel web app validates HTTPS TikTok URLs and requests TikTok's public oEmbed metadata. If GROQ_API_KEY is configured, it generates a short context note using only the returned metadata and the user's question. It must never claim to have watched or analyzed video content that was not retrieved.
+The Vercel web app validates HTTPS TikTok URLs and requests TikTok's public oEmbed metadata. If GROQ_API_KEY is configured, it generates a short context note using only the returned metadata and the user's question.
 
-## Planned media pipeline contract
+The separate Python worker exposes POST /v1/analyze. It retrieves one public segment at a time, enforces the 10 MiB / 90-second caps, and returns timestamped Faster-Whisper transcript, OCR observations and keyframes. The caller must hold the worker API key server-side and pass the returned next_cursor to continue. Never claim to have watched or analyzed evidence that the worker did not return.
+
+## Media pipeline contract
 - Maximum downloaded media file: 10 MB per file.
 - Maximum processing segment: 90 seconds.
 - Long videos: process sequential segments only when the next segment is accessible; continue on explicit user request; stop at end or when unavailable.
