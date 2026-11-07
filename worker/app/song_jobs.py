@@ -11,6 +11,9 @@ from .config import MAX_SEGMENT_SECONDS
 _LOCK = threading.Lock()
 _JOBS: dict[str, dict] = {}
 
+class WorkerBusy(RuntimeError):
+    pass
+
 def create_job(url: str | None, cursor: str | None) -> tuple[str, str, float]:
     if bool(url) == bool(cursor):
         raise ValueError("Provide exactly one TikTok URL or continuation cursor.")
@@ -20,6 +23,8 @@ def create_job(url: str | None, cursor: str | None) -> tuple[str, str, float]:
         source_url, offset = validate_tiktok_url(url), 0.0
     job_id = uuid.uuid4().hex
     with _LOCK:
+        if any(job["status"] in {"queued", "processing"} for job in _JOBS.values()):
+            raise WorkerBusy("The song-recognition worker is already processing another video. Retry after it finishes.")
         _JOBS[job_id] = {"id":job_id,"status":"queued","result":None,"error":None}
     return job_id, source_url, offset
 
