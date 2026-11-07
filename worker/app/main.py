@@ -12,7 +12,7 @@ from .cursors import encode_cursor, decode_cursor, InvalidCursor
 from .media import inspect_video, download_segment, probe_duration, MediaUnavailable, MediaLimitExceeded
 from .processors import transcribe, extract_frames
 from .music import identify_songs
-from .song_jobs import create_job, run_job, get_job
+from .song_jobs import create_job, run_job, get_job, WorkerBusy
 
 app = FastAPI(title="TikTok Intelligence Media Worker", version="0.2.0")
 
@@ -112,6 +112,8 @@ def start_song_job(payload: SongJobRequest, background_tasks: BackgroundTasks, x
     require_worker_key(x_worker_key, WORKER_API_KEY)
     try:
         job_id, source_url, offset = create_job(payload.url, payload.cursor)
+    except WorkerBusy as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
     except (UnsafeSource, InvalidCursor, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     background_tasks.add_task(run_job, job_id, source_url, offset)
