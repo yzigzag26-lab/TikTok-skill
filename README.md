@@ -47,8 +47,13 @@ Open http://localhost:3000.
 
 The endpoint returns metadata, optional constrained context, limitations and next steps. It does not claim the video was watched.
 
-## Planned next phase
+## Python media worker
 
-Implement a separate Python media worker for bounded public/authorized media retrieval, strict 10 MB file and 90-second segment limits, sequential continuation, timestamped transcription, OCR, keyframes and audio/music identification. Add REST/MCP adapters over the normalized evidence schema.
+Deploy the worker separately using the root Render Blueprint (`render.yaml`) or build `worker/Dockerfile`. The service exposes authenticated `POST /v1/analyze`; pass either a TikTok URL to start or the returned `next_cursor` to continue. Full deployment steps, environment variables and curl examples are in [worker/README.md](worker/README.md).
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [skills/tiktok-reader/SKILL.md](skills/tiktok-reader/SKILL.md).
+## Remaining milestones
+
+- Add a durable job queue and job-status API for slow cloud inference.
+- Connect the Vercel UI to the worker through a server-side authenticated orchestration layer.
+- Add music recognition and MCP stdio / Streamable HTTP adapters.
+- Run end-to-end tests against accessible public sample videos and verify deployment resource usage.
