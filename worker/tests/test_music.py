@@ -15,7 +15,7 @@ class MusicRecognitionTests(unittest.TestCase):
         self.assertEqual(result["status"], "not_configured")
         self.assertEqual(result["matches"], [])
 
-    @patch.object(music, "_extract_sample", return_value=b"sample-audio-data" * 100)
+    @patch.object(music, "_extract_sample", return_value=b"sample-audio-data" * 300)
     @patch.object(music.requests, "post")
     def test_deduplicates_repeated_matches_and_preserves_timestamps(self, post, extract):
         response = Mock()
@@ -33,7 +33,7 @@ class MusicRecognitionTests(unittest.TestCase):
         self.assertEqual(result["matches"][0]["provider"], "AudD")
         self.assertEqual(post.call_count, 3)
 
-    @patch.object(music, "_extract_sample", return_value=b"sample-audio-data" * 100)
+    @patch.object(music, "_extract_sample", return_value=b"sample-audio-data" * 300)
     @patch.object(music.requests, "post")
     def test_no_match_is_not_reported_as_identified(self, post, extract):
         response = Mock()
