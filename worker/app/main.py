@@ -3,7 +3,7 @@ import tempfile
 import threading
 from pathlib import Path
 from typing import Optional
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from .config import WORKER_API_KEY, CURSOR_SECRET, MAX_MEDIA_BYTES, MAX_SEGMENT_SECONDS, MAX_REQUEST_BYTES
@@ -12,10 +12,15 @@ from .cursors import encode_cursor, decode_cursor, InvalidCursor
 from .media import inspect_video, download_segment, probe_duration, MediaUnavailable, MediaLimitExceeded
 from .processors import transcribe, extract_frames
 from .music import identify_songs
+from .song_jobs import create_job, run_job, get_job
 
 app = FastAPI(title="TikTok Intelligence Media Worker", version="0.2.0")
 
 class AnalyzeRequest(BaseModel):
+    url: Optional[str] = Field(default=None, max_length=2048)
+    cursor: Optional[str] = Field(default=None, max_length=4096)
+
+class SongJobRequest(BaseModel):
     url: Optional[str] = Field(default=None, max_length=2048)
     cursor: Optional[str] = Field(default=None, max_length=4096)
 
@@ -98,3 +103,28 @@ def _analyze(payload: AnalyzeRequest, request: Request, x_worker_key: Optional[s
 @app.exception_handler(Exception)
 async def unexpected_error_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": "Internal worker error."})
+
+
+@app.post("/v1/song-jobs")
+def start_song_job(payload: SongJobRequest, background_tasks: BackgroundTasks, x_worker_key: Optional[str] = Header(default=None)):
+    if not WORKER_API_KEY:
+        raise HTTPException(status_code=503, detail="WORKER_API_KEY is not configured.")
+    require_worker_key(x_worker_key, WORKER_API_KEY)
+    try:
+        job_id, source_url, offset = create_job(payload.url, payload.cursor)
+    except (UnsafeSource, InvalidCursor, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    background_tasks.add_task(run_job, job_id, source_url, offset)
+    return {"job_id": job_id, "status": "queued", "poll": f"/v1/song-jobs/{job_id}"}
+
+@app.get("/v1/song-jobs/{job_id}")
+def read_song_job(job_id: str, x_worker_key: Optional[str] = Header(default=None)):
+    if not WORKER_API_KEY:
+        raise HTTPException(status_code=503, detail="WORKER_API_KEY is not configured.")
+    require_worker_key(x_worker_key, WORKER_API_KEY)
+    if len(job_id) != 32 or not job_id.isalnum():
+        raise HTTPException(status_code=400, detail="Invalid job ID.")
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Song-identification job not found. The worker may have restarted.")
+    return job
