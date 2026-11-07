@@ -7,6 +7,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 os.environ["CURSOR_SECRET"] = "test-secret-that-is-long-enough-for-unit-tests"
 
+from app import config
+config.CURSOR_SECRET = "test-secret-that-is-long-enough-for-unit-tests"
 from app.cursors import encode_cursor, decode_cursor, InvalidCursor
 from app.security import validate_tiktok_url, UnsafeSource
 from app.media import _make_progress_hook
