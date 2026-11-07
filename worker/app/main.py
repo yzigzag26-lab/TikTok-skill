@@ -23,6 +23,8 @@ def health():
 
 @app.post("/v1/analyze")
 async def analyze(payload: AnalyzeRequest, request: Request, x_worker_key: Optional[str] = Header(default=None)):
+    if not WORKER_API_KEY:
+        raise HTTPException(status_code=503, detail="WORKER_API_KEY is not configured.")
     require_worker_key(x_worker_key, WORKER_API_KEY)
     if int(request.headers.get("content-length", "0") or "0") > MAX_REQUEST_BYTES:
         raise HTTPException(status_code=413, detail="Request body is too large.")
